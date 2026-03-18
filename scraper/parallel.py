@@ -38,7 +38,7 @@ MAX_WORKERS = 8
 
 @dataclass
 class JobCard:
-    """Lightweight job data extracted from a search result card."""
+    """Job data extracted from search card + optional detail enrichment."""
 
     job_id: str
     url: str
@@ -47,6 +47,15 @@ class JobCard:
     location: str = ""
     posted_date: str = ""
     salary: str = ""
+    badge: str = ""  # "Actively Hiring", "Be an early applicant", etc.
+
+    # Enriched from detail page (populated by enrich_cards)
+    description: str = ""
+    applicant_count: int | None = None
+    seniority_level: str = ""
+    employment_type: str = ""
+    job_function: str = ""
+    industries: str = ""
 
 
 @dataclass
@@ -84,11 +93,15 @@ async def parallel_collect(
     profile: SearchProfile,
     *,
     max_workers: int = MAX_WORKERS,
+    enrich: bool = True,
 ) -> ParallelResult:
     """Probe total results, then dispatch parallel workers to collect all URLs.
 
     Each worker is an independent headless browser context (no cookies, no
     shared state). Returns deduplicated JobCards with metadata.
+
+    If enrich=True (default), hits guest detail pages in parallel to grab
+    full description, applicant count, seniority level, and employment type.
     """
     import time
 
@@ -154,14 +167,23 @@ async def parallel_collect(
             if card.job_id not in all_cards:
                 all_cards[card.job_id] = card
 
-    elapsed = time.time() - start_time
+    card_list = list(all_cards.values())
+    collect_elapsed = time.time() - start_time
     log.info(
-        f"Parallel collection complete: {len(all_cards)} unique jobs "
-        f"from {total_pages_scraped} pages in {elapsed:.1f}s",
+        f"URL collection complete: {len(card_list)} unique jobs "
+        f"from {total_pages_scraped} pages in {collect_elapsed:.1f}s",
     )
 
+    # Phase 5: Enrich with detail pages (parallel)
+    if enrich and card_list:
+        log.info(f"Enriching {len(card_list)} jobs with detail pages...")
+        await _enrich_cards_parallel(card_list, max_workers=max_workers)
+
+    elapsed = time.time() - start_time
+    log.info(f"Total parallel scrape: {len(card_list)} jobs in {elapsed:.1f}s")
+
     return ParallelResult(
-        cards=list(all_cards.values()),
+        cards=card_list,
         total_results_probed=total,
         pages_scraped=total_pages_scraped,
         workers_used=len(assignments),
@@ -328,8 +350,12 @@ async def _extract_cards(page: Page) -> list[JobCard]:
             const salaryEl = el.querySelector('span.job-search-card__salary-info');
             const salary = salaryEl ? salaryEl.textContent.trim() : '';
 
+            // Badge text ("Actively Hiring", "Be an early applicant", etc.)
+            const badgeEl = el.querySelector('.job-posting-benefits__text');
+            const badge = badgeEl ? badgeEl.textContent.trim() : '';
+
             cards.push({
-                jobId, url, title, company, location, postedDate, salary
+                jobId, url, title, company, location, postedDate, salary, badge
             });
         });
         return cards;
@@ -344,6 +370,108 @@ async def _extract_cards(page: Page) -> list[JobCard]:
             location=c.get("location", ""),
             posted_date=c.get("postedDate", ""),
             salary=c.get("salary", ""),
+            badge=c.get("badge", ""),
         )
         for c in raw_cards
     ]
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: Detail enrichment (parallel)
+# ---------------------------------------------------------------------------
+
+ENRICH_BATCH_SIZE = 40  # cards per enrichment worker
+
+
+async def _enrich_cards_parallel(cards: list[JobCard], *, max_workers: int = MAX_WORKERS) -> None:
+    """Hit guest detail pages in parallel to enrich cards with full data.
+
+    Modifies cards in-place. Each worker gets a batch of cards and its own
+    browser context.
+    """
+    batches: list[list[JobCard]] = []
+    for i in range(0, len(cards), ENRICH_BATCH_SIZE):
+        batches.append(cards[i : i + ENRICH_BATCH_SIZE])
+
+    num_workers = min(max_workers, len(batches))
+    log.info(f"Enriching with {num_workers} workers ({len(batches)} batches, {len(cards)} jobs)")
+
+    tasks = [_enrich_worker(worker_id, batch) for worker_id, batch in enumerate(batches)]
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+    enriched = sum(1 for c in cards if c.applicant_count or c.seniority_level)
+    log.info(f"Enrichment complete: {enriched}/{len(cards)} jobs with detail data")
+
+
+async def _enrich_worker(worker_id: int, cards: list[JobCard]) -> int:
+    """Enrich a batch of cards by visiting their guest detail pages."""
+    pw = await async_playwright().start()
+    browser = await pw.chromium.launch(headless=True, args=STEALTH_ARGS)
+    context = await browser.new_context(
+        user_agent=DEFAULT_USER_AGENT,
+        viewport=DEFAULT_VIEWPORT,  # type: ignore[arg-type]
+    )
+    page = await context.new_page()
+    enriched = 0
+
+    try:
+        for card in cards:
+            try:
+                await page.goto(card.url, wait_until="domcontentloaded")
+                await asyncio.sleep(gaussian_delay(0.8, 0.2))
+                detail = await _extract_detail(page)
+
+                card.description = detail.get("description", "")
+                card.applicant_count = detail.get("applicant_count")
+                card.seniority_level = detail.get("seniority_level", "")
+                card.employment_type = detail.get("employment_type", "")
+                card.job_function = detail.get("job_function", "")
+                card.industries = detail.get("industries", "")
+                enriched += 1
+
+            except Exception as e:
+                log.debug(f"Enrich failed for {card.job_id}: {e}")
+
+    finally:
+        await context.close()
+        await browser.close()
+        await pw.stop()
+
+    log.info(f"Enrich worker {worker_id}: {enriched}/{len(cards)} enriched")
+    return enriched
+
+
+async def _extract_detail(page: Page) -> dict:
+    """Extract full detail data from a guest job detail page."""
+    return await page.evaluate("""() => {
+        const result = {};
+
+        // Description
+        const descEl = document.querySelector('.description__text, .show-more-less-html__markup');
+        if (descEl) {
+            result.description = descEl.textContent.trim().substring(0, 10000);
+        }
+
+        // Applicant count ("138 applicants")
+        const appEl = document.querySelector('.num-applicants__caption');
+        if (appEl) {
+            const m = appEl.textContent.match(/(\\d[\\d,]*)/);
+            if (m) result.applicant_count = parseInt(m[1].replace(/,/g, ''));
+        }
+
+        // Job criteria (seniority, employment type, job function, industries)
+        const criteria = document.querySelectorAll('.description__job-criteria-item');
+        criteria.forEach(item => {
+            const label = item.querySelector('.description__job-criteria-subheader');
+            const value = item.querySelector('.description__job-criteria-text');
+            if (!label || !value) return;
+            const l = label.textContent.trim().toLowerCase();
+            const v = value.textContent.trim();
+            if (l.includes('seniority')) result.seniority_level = v;
+            else if (l.includes('employment')) result.employment_type = v;
+            else if (l.includes('function')) result.job_function = v;
+            else if (l.includes('industr')) result.industries = v;
+        });
+
+        return result;
+    }""")

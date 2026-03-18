@@ -164,7 +164,7 @@ async def _run_parallel(config: ScraperConfig) -> None:
             log.warning("No jobs found")
             continue
 
-        # Convert JobCards to Job objects
+        # Convert JobCards to Job objects (with enriched data if available)
         jobs: list[Job] = []
         dedup = Deduplicator()
         for card in result_data.cards:
@@ -174,12 +174,30 @@ async def _run_parallel(config: ScraperConfig) -> None:
                 company=card.company,
                 location=card.location,
                 url=card.url,
+                description=card.description,
                 posted_date=card.posted_date or None,
+                seniority_level=card.seniority_level,
+                applicant_count=card.applicant_count,
                 extraction_strategy=ExtractionStrategy.DOM_FALLBACK,
             )
-            # Parse salary if present
-            if card.salary:
-                job.description = f"Salary: {card.salary}"
+            # Map employment type to JobType
+            if card.employment_type:
+                from data.models import JobType
+
+                emp_lower = card.employment_type.lower()
+                for pattern, jt in {
+                    "full": JobType.FULL_TIME,
+                    "part": JobType.PART_TIME,
+                    "contract": JobType.CONTRACT,
+                    "intern": JobType.INTERNSHIP,
+                    "temporary": JobType.TEMPORARY,
+                }.items():
+                    if pattern in emp_lower:
+                        job.job_type = jt
+                        break
+
+            if card.industries:
+                job.industries = [s.strip() for s in card.industries.split(",")]
 
             job = clean_job(job)
             if not dedup.is_duplicate(job):
