@@ -128,12 +128,18 @@ async def _run_scrape_task(profile: SearchProfile, save_profile: bool, enrich: b
                         "description": card.description,
                         "salary_raw": card.salary,
                         "job_type": card.employment_type or "Unknown",
+                        "workplace_type": card.workplace_type or "Unknown",
                         "seniority_level": card.seniority_level,
                         "applicant_count": card.applicant_count,
                         "posted_date": card.posted_date,
                         "badge": card.badge,
                         "job_function": card.job_function,
                         "industries": card.industries,
+                        "hiring_manager": (
+                            f"{card.hiring_manager_name}|{card.hiring_manager_url}"
+                            if card.hiring_manager_name
+                            else ""
+                        ),
                         "enriched": bool(card.description),
                         "extraction_strategy": "parallel_guest",
                         "scrape_run_id": run_id,

@@ -25,6 +25,14 @@
                 <div class="font-medium">{{ job.seniority_level or '&mdash;' }}</div>
             </div>
             <div class="bg-gray-50 rounded p-3">
+                <div class="text-gray-500 text-xs">Workplace</div>
+                <div class="font-medium">
+                    {% if job.workplace_type and job.workplace_type != 'Unknown' %}
+                    <span class="{% if job.workplace_type == 'Remote' %}text-green-600{% elif job.workplace_type == 'Hybrid' %}text-blue-600{% endif %}">{{ job.workplace_type }}</span>
+                    {% else %}&mdash;{% endif %}
+                </div>
+            </div>
+            <div class="bg-gray-50 rounded p-3">
                 <div class="text-gray-500 text-xs">Applicants</div>
                 <div class="font-medium">{{ job.applicant_count or '&mdash;' }}</div>
             </div>
@@ -46,16 +54,27 @@
             {% endif %}
         </div>
 
-        <!-- Auth-gated fields -->
-        {% if job.hiring_manager %}
+        <!-- Hiring Manager -->
+        {% if job.hiring_manager and '|' in job.hiring_manager %}
+        {% set hm_parts = job.hiring_manager.split('|') %}
         <div class="bg-blue-50 rounded p-3 mb-4 text-sm">
-            <div class="text-blue-600 text-xs font-medium">Hiring Manager</div>
+            <div class="text-blue-600 text-xs font-medium">Hiring Manager / Recruiter</div>
+            <div class="flex items-center gap-2 mt-1">
+                <span class="font-medium">{{ hm_parts[0] }}</span>
+                {% if hm_parts[1] %}
+                <a href="{{ hm_parts[1] }}" target="_blank"
+                   class="text-blue-600 hover:underline text-xs">LinkedIn Profile</a>
+                {% endif %}
+            </div>
+        </div>
+        {% elif job.hiring_manager %}
+        <div class="bg-blue-50 rounded p-3 mb-4 text-sm">
+            <div class="text-blue-600 text-xs font-medium">Hiring Manager / Recruiter</div>
             <div>{{ job.hiring_manager }}</div>
         </div>
-        {% endif %}
-        {% if not job.hiring_manager %}
+        {% else %}
         <div class="bg-gray-50 rounded p-3 mb-4 text-sm text-gray-400">
-            Hiring manager info &mdash; requires auth cookies
+            No hiring manager listed for this posting
         </div>
         {% endif %}
 

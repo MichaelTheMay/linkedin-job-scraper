@@ -54,8 +54,11 @@ class JobCard:
     applicant_count: int | None = None
     seniority_level: str = ""
     employment_type: str = ""
+    workplace_type: str = ""  # Remote, On-site, Hybrid
     job_function: str = ""
     industries: str = ""
+    hiring_manager_name: str = ""
+    hiring_manager_url: str = ""
 
 
 @dataclass
@@ -354,8 +357,16 @@ async def _extract_cards(page: Page) -> list[JobCard]:
             const badgeEl = el.querySelector('.job-posting-benefits__text');
             const badge = badgeEl ? badgeEl.textContent.trim() : '';
 
+            // Infer workplace type from title + location text
+            const combined = (title + ' ' + location).toLowerCase();
+            let workplaceType = '';
+            if (/\bremote\b/.test(combined)) workplaceType = 'Remote';
+            else if (/\bhybrid\b/.test(combined)) workplaceType = 'Hybrid';
+            else if (/\bon[- ]?site\b/.test(combined)) workplaceType = 'On-site';
+
             cards.push({
-                jobId, url, title, company, location, postedDate, salary, badge
+                jobId, url, title, company, location, postedDate,
+                salary, badge, workplaceType
             });
         });
         return cards;
@@ -371,6 +382,7 @@ async def _extract_cards(page: Page) -> list[JobCard]:
             posted_date=c.get("postedDate", ""),
             salary=c.get("salary", ""),
             badge=c.get("badge", ""),
+            workplace_type=c.get("workplaceType", ""),
         )
         for c in raw_cards
     ]
@@ -425,8 +437,11 @@ async def _enrich_worker(worker_id: int, cards: list[JobCard]) -> int:
                 card.applicant_count = detail.get("applicant_count")
                 card.seniority_level = detail.get("seniority_level", "")
                 card.employment_type = detail.get("employment_type", "")
+                card.workplace_type = detail.get("workplace_type", "")
                 card.job_function = detail.get("job_function", "")
                 card.industries = detail.get("industries", "")
+                card.hiring_manager_name = detail.get("hiring_manager_name", "")
+                card.hiring_manager_url = detail.get("hiring_manager_url", "")
                 enriched += 1
 
             except Exception as e:
@@ -447,7 +462,9 @@ async def _extract_detail(page: Page) -> dict:
         const result = {};
 
         // Description
-        const descEl = document.querySelector('.description__text, .show-more-less-html__markup');
+        const descEl = document.querySelector(
+            '.description__text, .show-more-less-html__markup'
+        );
         if (descEl) {
             result.description = descEl.textContent.trim().substring(0, 10000);
         }
@@ -460,10 +477,16 @@ async def _extract_detail(page: Page) -> dict:
         }
 
         // Job criteria (seniority, employment type, job function, industries)
-        const criteria = document.querySelectorAll('.description__job-criteria-item');
+        const criteria = document.querySelectorAll(
+            '.description__job-criteria-item'
+        );
         criteria.forEach(item => {
-            const label = item.querySelector('.description__job-criteria-subheader');
-            const value = item.querySelector('.description__job-criteria-text');
+            const label = item.querySelector(
+                '.description__job-criteria-subheader'
+            );
+            const value = item.querySelector(
+                '.description__job-criteria-text'
+            );
             if (!label || !value) return;
             const l = label.textContent.trim().toLowerCase();
             const v = value.textContent.trim();
@@ -471,6 +494,49 @@ async def _extract_detail(page: Page) -> dict:
             else if (l.includes('employment')) result.employment_type = v;
             else if (l.includes('function')) result.job_function = v;
             else if (l.includes('industr')) result.industries = v;
+        });
+
+        // Workplace type — inferred from location text, title, and topcard
+        // LinkedIn doesn't expose this as structured data on guest pages,
+        // so we infer from text patterns.
+        const titleEl2 = document.querySelector('.top-card-layout__title');
+        const titleText = titleEl2 ? titleEl2.textContent : '';
+        const locEl = document.querySelector('.topcard__flavor--bullet');
+        const locText = locEl ? locEl.textContent.trim() : '';
+        const combined = (titleText + ' ' + locText).toLowerCase();
+
+        if (/\\bremote\\b/.test(combined)) {
+            result.workplace_type = 'Remote';
+        } else if (/\\bhybrid\\b/.test(combined)) {
+            result.workplace_type = 'Hybrid';
+        } else if (/\\bon[- ]?site\\b/.test(combined)) {
+            result.workplace_type = 'On-site';
+        }
+
+        // Hiring manager — from "message the recruiter" section
+        const recruiterLink = document.querySelector(
+            '.message-the-recruiter__cta'
+        );
+        if (recruiterLink) {
+            const ariaLabel = recruiterLink.getAttribute('aria-label') || '';
+            const nameMatch = ariaLabel.match(/Message\\s+(.+)/);
+            if (nameMatch) {
+                result.hiring_manager_name = nameMatch[1].trim();
+            }
+        }
+        // Get their LinkedIn profile URL
+        const profileLinks = document.querySelectorAll(
+            'a[href*="linkedin.com/in/"]'
+        );
+        profileLinks.forEach(a => {
+            const href = a.href || a.getAttribute('href') || '';
+            // Skip login redirect links
+            if (href.includes('/login')) return;
+            // Only take the first real profile link (the recruiter)
+            if (!result.hiring_manager_url && href.includes('/in/')) {
+                const clean = href.split('?')[0];
+                result.hiring_manager_url = clean;
+            }
         });
 
         return result;
