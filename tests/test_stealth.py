@@ -1,13 +1,11 @@
 """Tests for stealth utilities."""
 
-import pytest
 from browser.stealth import (
     STEALTH_ARGS,
     STEALTH_INIT_SCRIPT,
     exponential_backoff,
     gaussian_delay,
     human_scroll_steps,
-    jittered_delay,
 )
 
 

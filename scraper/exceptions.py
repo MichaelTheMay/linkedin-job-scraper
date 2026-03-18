@@ -6,8 +6,6 @@ can make informed decisions about retry, fallback, or abort.
 
 from __future__ import annotations
 
-from typing import Optional
-
 
 class ScraperError(Exception):
     """Base exception for all scraper errors."""
@@ -17,7 +15,7 @@ class ScraperError(Exception):
         message: str,
         *,
         url: str = "",
-        status_code: Optional[int] = None,
+        status_code: int | None = None,
     ):
         self.url = url
         self.status_code = status_code
@@ -60,7 +58,7 @@ class RateLimitError(ScraperError):
         self,
         message: str = "Rate limited (HTTP 429)",
         *,
-        retry_after: Optional[int] = None,
+        retry_after: int | None = None,
         **kwargs,
     ):
         self.retry_after = retry_after

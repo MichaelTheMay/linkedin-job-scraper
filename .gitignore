@@ -27,6 +27,7 @@ output/
 
 # Debug artifacts
 *.html
+!tests/fixtures/*.html
 *.png
 *.txt
 !requirements.txt
@@ -35,6 +36,12 @@ output/
 
 # Testing
 .pytest_cache/
+htmlcov/
+coverage.xml
+.coverage
+
+# Type checking
+.mypy_cache/
 
 # IDE
 .vscode/

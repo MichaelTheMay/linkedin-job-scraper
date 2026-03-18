@@ -1,6 +1,5 @@
 """Tests for data models."""
 
-import pytest
 from data.models import ExtractionStrategy, Job, JobType, ScrapeResult, WorkplaceType
 
 
@@ -41,23 +40,44 @@ class TestJob:
 
     def test_to_dict_has_all_expected_keys(self):
         job = Job(
-            job_id="1", title="T", company="C", location="L",
+            job_id="1",
+            title="T",
+            company="C",
+            location="L",
             url="https://example.com",
         )
         d = job.to_dict()
         expected_keys = {
-            "job_id", "title", "company", "location", "url", "description",
-            "salary_min", "salary_max", "salary_currency", "job_type",
-            "workplace_type", "seniority_level", "applicant_count",
-            "posted_date", "is_easy_apply", "is_promoted", "industries",
-            "extraction_strategy", "extracted_at",
+            "job_id",
+            "title",
+            "company",
+            "location",
+            "url",
+            "description",
+            "salary_min",
+            "salary_max",
+            "salary_currency",
+            "job_type",
+            "workplace_type",
+            "seniority_level",
+            "applicant_count",
+            "posted_date",
+            "is_easy_apply",
+            "is_promoted",
+            "industries",
+            "extraction_strategy",
+            "extracted_at",
         }
         assert set(d.keys()) == expected_keys
 
     def test_industries_serialization(self):
         job = Job(
-            job_id="1", title="T", company="C", location="L",
-            url="u", industries=["AI", "Tech"],
+            job_id="1",
+            title="T",
+            company="C",
+            location="L",
+            url="u",
+            industries=["AI", "Tech"],
         )
         assert job.to_dict()["industries"] == "AI; Tech"
 

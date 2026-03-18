@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from playwright.async_api import (
     BrowserContext,
@@ -30,9 +29,9 @@ class BrowserManager:
 
     def __init__(self, config: ScraperConfig):
         self.config = config
-        self._playwright: Optional[Playwright] = None
-        self._context: Optional[BrowserContext] = None
-        self._page: Optional[Page] = None
+        self._playwright: Playwright | None = None
+        self._context: BrowserContext | None = None
+        self._page: Page | None = None
         self._pages_visited = 0
 
     @property
@@ -54,10 +53,12 @@ class BrowserManager:
 
         log.info(
             "Launching browser",
-            extra={"ctx": {
-                "headless": self.config.headless,
-                "user_data_dir": str(user_data_dir),
-            }},
+            extra={
+                "ctx": {
+                    "headless": self.config.headless,
+                    "user_data_dir": str(user_data_dir),
+                }
+            },
         )
 
         self._playwright = await async_playwright().start()
@@ -67,7 +68,7 @@ class BrowserManager:
             headless=self.config.headless,
             args=STEALTH_ARGS,
             user_agent=DEFAULT_USER_AGENT,
-            viewport=self.config.viewport or DEFAULT_VIEWPORT,
+            viewport=self.config.viewport or DEFAULT_VIEWPORT,  # type: ignore[arg-type]
             locale="en-US",
             timezone_id="America/Chicago",
             ignore_https_errors=True,
@@ -115,6 +116,7 @@ class BrowserManager:
     def needs_restart(self) -> bool:
         """True if we've visited enough pages to warrant a browser restart."""
         from config.constants import BROWSER_RESTART_INTERVAL
+
         return self._pages_visited >= BROWSER_RESTART_INTERVAL
 
     async def restart(self) -> Page:
@@ -125,12 +127,16 @@ class BrowserManager:
         )
         return await self.new_page()
 
-    async def screenshot(self, path: str = "debug_screenshot.png") -> str:
+    async def screenshot(self, filename: str = "debug_screenshot.png") -> str:
         """Take a debug screenshot and return the path."""
         if self._page:
-            await self._page.screenshot(path=path)
-            log.debug(f"Screenshot saved: {path}")
-        return path
+            output_dir = Path(self.config.output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            full_path = str(output_dir / filename)
+            await self._page.screenshot(path=full_path)
+            log.debug(f"Screenshot saved: {full_path}")
+            return full_path
+        return filename
 
     async def close(self) -> None:
         """Shut down browser and Playwright."""

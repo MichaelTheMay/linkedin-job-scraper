@@ -1,7 +1,8 @@
 """Tests for DOM fallback extraction strategy."""
 
 import pytest
-from data.models import ExtractionStrategy, JobType, WorkplaceType
+
+from data.models import ExtractionStrategy, WorkplaceType
 from scraper.exceptions import ExtractionFallbackError
 from scraper.strategies.dom_fallback import extract_from_dom
 

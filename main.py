@@ -4,6 +4,7 @@ Usage:
     python main.py                          # scrape with default config
     python main.py --config custom.yaml     # use custom search profiles
     python main.py --validate               # check session health only
+    python main.py --login                  # interactive cookie setup
     python main.py --max-pages 5            # override max pages
     python main.py --no-headless            # run with visible browser
 """
@@ -13,14 +14,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 import signal
-import sys
 import time
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from playwright.async_api import Page
 
 from browser.interceptor import NetworkInterceptor
 from browser.manager import BrowserManager
-from browser.session import SessionManager
-from browser.stealth import exponential_backoff, gaussian_delay
+from browser.session import SessionManager, interactive_login
+from browser.stealth import exponential_backoff
 from config.constants import PROGRESS_SAVE_INTERVAL
 from config.settings import ScraperConfig, SearchProfile, load_config
 from data.cleaner import clean_job
@@ -44,13 +47,12 @@ from scraper.job_search import collect_job_urls
 
 log = get_logger()
 
-# Global flag for graceful shutdown
-_shutdown_requested = False
+# Graceful shutdown event — set by signal handler, checked by async loops
+_shutdown_event = asyncio.Event()
 
 
 def _signal_handler(sig, frame):
-    global _shutdown_requested
-    _shutdown_requested = True
+    _shutdown_event.set()
     log.warning("Shutdown requested (Ctrl+C) — saving progress and exiting...")
 
 
@@ -73,19 +75,35 @@ async def run_scrape(config: ScraperConfig) -> None:
         page = await browser.launch()
 
         # --- Inject cookies and validate session ---
+        session_rate_limited = False
         await session.inject_cookies()
-        await session.validate()
-        await session.warmup()
+        try:
+            await session.validate()
+            await session.warmup()
+        except RateLimitError:
+            session_rate_limited = True
+            log.warning(
+                "Session rate-limited during validation — "
+                "will use guest API for URL collection. "
+                "Job detail extraction may be limited."
+            )
 
         # --- Start network interceptor ---
         await interceptor.start_listening(page)
 
         # --- Run each search profile ---
         for profile in config.search_profiles:
-            if _shutdown_requested:
+            if _shutdown_event.is_set():
                 break
             await _run_profile(
-                profile, page, browser, session, interceptor, health, config
+                profile,
+                page,
+                browser,
+                session,
+                interceptor,
+                health,
+                config,
+                prefer_guest_api=session_rate_limited,
             )
 
     except SessionError as e:
@@ -117,12 +135,14 @@ async def run_scrape(config: ScraperConfig) -> None:
 
 async def _run_profile(
     profile: SearchProfile,
-    page,
+    page: Page,
     browser: BrowserManager,
     session: SessionManager,
     interceptor: NetworkInterceptor,
     health: HealthTracker,
     config: ScraperConfig,
+    *,
+    prefer_guest_api: bool = False,
 ) -> None:
     """Run a single search profile: collect URLs → extract details → export."""
     log.info(
@@ -139,7 +159,7 @@ async def _run_profile(
 
     # Phase 1: Collect job URLs
     try:
-        urls = await collect_job_urls(page, profile)
+        urls = await collect_job_urls(page, profile, prefer_guest_api=prefer_guest_api)
     except (AuthExpiredError, BotDetectedError, ChallengeError):
         raise  # Let the outer handler deal with fatal errors
     except ScraperError as e:
@@ -157,7 +177,7 @@ async def _run_profile(
     log.info(f"=== Phase 2: Extracting {len(urls)} jobs ===")
 
     for i, url in enumerate(urls):
-        if _shutdown_requested:
+        if _shutdown_event.is_set():
             log.warning("Shutdown requested — saving progress")
             break
 
@@ -171,9 +191,7 @@ async def _run_profile(
         )
 
         # Try extraction with retry for recoverable errors
-        job = await _extract_with_retry(
-            page, url, interceptor, health, browser, session
-        )
+        job = await _extract_with_retry(page, url, interceptor, health, browser, session)
 
         if job is None:
             result.total_errors += 1
@@ -229,7 +247,7 @@ async def _extract_with_retry(
     browser: BrowserManager,
     session: SessionManager,
     max_retries: int = 3,
-) -> Optional[Job]:
+) -> Job | None:
     """Extract a job with retry logic for recoverable errors."""
     for attempt in range(max_retries):
         try:
@@ -238,7 +256,7 @@ async def _extract_with_retry(
         except (AuthExpiredError, BotDetectedError, ChallengeError):
             raise  # Fatal — don't retry
 
-        except RateLimitError as e:
+        except RateLimitError:
             health.record_error("RateLimitError")
             delay = exponential_backoff(attempt, base=30.0)
             log.warning(
@@ -247,7 +265,7 @@ async def _extract_with_retry(
             )
             await asyncio.sleep(delay)
 
-        except PageLoadError as e:
+        except PageLoadError:
             health.record_error("PageLoadError")
             if attempt < max_retries - 1:
                 delay = exponential_backoff(attempt, base=5.0, cap=30.0)
@@ -308,9 +326,15 @@ def main():
         description="LinkedIn Job Scraper — production-grade job data extraction"
     )
     parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         default=None,
         help="Path to YAML config file (default: config/search_profiles.yaml)",
+    )
+    parser.add_argument(
+        "--login",
+        action="store_true",
+        help="Interactive login — opens a visible browser for cookie capture",
     )
     parser.add_argument(
         "--validate",
@@ -329,7 +353,8 @@ def main():
         help="Run with visible browser window",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Enable verbose (DEBUG) logging",
     )
@@ -360,7 +385,9 @@ def main():
     signal.signal(signal.SIGINT, _signal_handler)
 
     # Run
-    if args.validate:
+    if args.login:
+        asyncio.run(interactive_login(config))
+    elif args.validate:
         asyncio.run(validate_session(config))
     else:
         asyncio.run(run_scrape(config))

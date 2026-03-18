@@ -9,12 +9,10 @@ Layer 5: Session stealth (cookie management)
 
 from __future__ import annotations
 
-import math
 import random
 
 from config.constants import (
     BLOCKED_RESOURCE_PATTERNS,
-    DEFAULT_USER_AGENT,
     DEFAULT_VIEWPORT,
 )
 
@@ -140,7 +138,7 @@ def jittered_delay(base: float, jitter_pct: float = 0.3) -> float:
 
 def exponential_backoff(attempt: int, base: float = 30.0, cap: float = 480.0) -> float:
     """Exponential backoff with jitter, capped at `cap` seconds."""
-    delay = min(base * (2 ** attempt), cap)
+    delay = min(base * (2**attempt), cap)
     jitter = delay * 0.2 * random.random()
     return delay + jitter
 

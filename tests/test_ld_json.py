@@ -3,6 +3,7 @@
 import json
 
 import pytest
+
 from data.models import ExtractionStrategy, JobType
 from scraper.exceptions import ExtractionFallbackError
 from scraper.strategies.ld_json import extract_from_ld_json
@@ -46,9 +47,7 @@ class TestLdJsonExtraction:
             "@type": "JobPosting",
             "title": "Engineer",
             "hiringOrganization": {"name": "Co"},
-            "baseSalary": {
-                "value": {"minValue": 120000, "maxValue": 180000}
-            },
+            "baseSalary": {"value": {"minValue": 120000, "maxValue": 180000}},
         }
         job = extract_from_ld_json(_make_html(data), "1", "u")
         assert job.salary_min == 120000

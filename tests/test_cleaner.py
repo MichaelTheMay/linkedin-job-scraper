@@ -1,7 +1,6 @@
 """Tests for the data cleaning pipeline."""
 
-import pytest
-from data.cleaner import clean_job, _clean_description
+from data.cleaner import _clean_description, clean_job
 from data.models import Job
 
 
@@ -21,7 +20,10 @@ class TestCleanJob:
 
     def test_marks_partial_on_missing_title(self):
         job = Job(
-            job_id="1", title="", company="Acme", location="TX",
+            job_id="1",
+            title="",
+            company="Acme",
+            location="TX",
             url="u",
         )
         cleaned = clean_job(job)
@@ -29,7 +31,10 @@ class TestCleanJob:
 
     def test_marks_partial_on_missing_company(self):
         job = Job(
-            job_id="1", title="Engineer", company="", location="TX",
+            job_id="1",
+            title="Engineer",
+            company="",
+            location="TX",
             url="u",
         )
         cleaned = clean_job(job)
@@ -56,7 +61,10 @@ class TestCleanDescription:
         assert "Python, TensorFlow" in cleaned
 
     def test_removes_premium_upsell(self):
-        text = "Get AI-powered advice on this job and more exclusive features with Premium.\nReal content here."
+        text = (
+            "Get AI-powered advice on this job and more exclusive features"
+            " with Premium.\nReal content here."
+        )
         cleaned = _clean_description(text)
         assert "Premium" not in cleaned
         assert "Real content here" in cleaned

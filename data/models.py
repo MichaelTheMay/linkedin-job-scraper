@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 
 class ExtractionStrategy(str, Enum):
@@ -47,14 +46,14 @@ class Job:
 
     # Optional enriched fields
     description: str = ""
-    salary_min: Optional[float] = None
-    salary_max: Optional[float] = None
+    salary_min: float | None = None
+    salary_max: float | None = None
     salary_currency: str = "USD"
     job_type: JobType = JobType.UNKNOWN
     workplace_type: WorkplaceType = WorkplaceType.UNKNOWN
     seniority_level: str = ""
-    applicant_count: Optional[int] = None
-    posted_date: Optional[str] = None
+    applicant_count: int | None = None
+    posted_date: str | None = None
     is_easy_apply: bool = False
     is_promoted: bool = False
     company_logo_url: str = ""
@@ -62,9 +61,7 @@ class Job:
 
     # Metadata
     extraction_strategy: ExtractionStrategy = ExtractionStrategy.UNKNOWN
-    extracted_at: str = field(
-        default_factory=lambda: datetime.now().isoformat(timespec="seconds")
-    )
+    extracted_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
     is_partial: bool = False  # True if some fields failed extraction
 
     def to_dict(self) -> dict:
@@ -109,6 +106,4 @@ class ScrapeResult:
     partial_extractions: int = 0
     elapsed_seconds: float = 0.0
     output_file: str = ""
-    started_at: str = field(
-        default_factory=lambda: datetime.now().isoformat(timespec="seconds")
-    )
+    started_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import Optional
 
 from playwright.async_api import Page
 
@@ -59,7 +58,7 @@ async def extract_job(
     try:
         response = await page.goto(url, wait_until="domcontentloaded")
     except Exception as e:
-        raise PageLoadError(f"Failed to load {url}: {e}", url=url)
+        raise PageLoadError(f"Failed to load {url}: {e}", url=url) from e
 
     await asyncio.sleep(gaussian_delay(2.0, 0.6))
 
@@ -78,10 +77,8 @@ async def extract_job(
     for indicator in AUTHWALL_INDICATORS:
         if indicator in current_url:
             if "checkpoint" in current_url:
-                raise ChallengeError(url=current_url)
-            raise AuthExpiredError(
-                "Session expired mid-scrape", url=current_url
-            )
+                raise ChallengeError("LinkedIn checkpoint challenge", url=current_url)
+            raise AuthExpiredError("Session expired mid-scrape", url=current_url)
 
     # Wait a moment for API responses to arrive
     await asyncio.sleep(gaussian_delay(1.0, 0.3))

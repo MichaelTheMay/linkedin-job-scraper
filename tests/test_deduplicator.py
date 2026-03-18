@@ -1,14 +1,16 @@
 """Tests for the deduplication logic."""
 
-import pytest
 from data.deduplicator import Deduplicator
 from data.models import Job
 
 
 def _make_job(job_id: str, title: str = "Engineer", company: str = "Acme") -> Job:
     return Job(
-        job_id=job_id, title=title, company=company,
-        location="TX", url=f"https://example.com/{job_id}",
+        job_id=job_id,
+        title=title,
+        company=company,
+        location="TX",
+        url=f"https://example.com/{job_id}",
     )
 
 

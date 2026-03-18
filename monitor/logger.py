@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -18,7 +18,7 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         entry = {
-            "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+            "ts": datetime.now(UTC).isoformat(timespec="milliseconds"),
             "level": record.levelname,
             "logger": record.name,
             "msg": record.getMessage(),
@@ -74,9 +74,7 @@ def setup_logging(
 
     # File handler — JSON lines
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_handler = logging.FileHandler(
-        log_path / f"scrape_{timestamp}.jsonl", encoding="utf-8"
-    )
+    file_handler = logging.FileHandler(log_path / f"scrape_{timestamp}.jsonl", encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(JsonFormatter())
     logger.addHandler(file_handler)

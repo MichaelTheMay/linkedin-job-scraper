@@ -1,6 +1,5 @@
 """Tests for the custom exception hierarchy."""
 
-import pytest
 from scraper.exceptions import (
     AuthExpiredError,
     BotDetectedError,

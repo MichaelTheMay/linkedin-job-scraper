@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from dotenv import load_dotenv
@@ -56,8 +55,8 @@ class ScraperConfig:
 
 
 def load_config(
-    config_path: Optional[str] = None,
-    env_path: Optional[str] = None,
+    config_path: str | None = None,
+    env_path: str | None = None,
 ) -> ScraperConfig:
     """Load config from YAML file + .env, with env vars taking precedence."""
     load_dotenv(env_path or ".env")
@@ -72,7 +71,7 @@ def load_config(
     # YAML config file
     yaml_path = Path(config_path or "config/search_profiles.yaml")
     if yaml_path.exists():
-        with open(yaml_path, "r") as f:
+        with open(yaml_path) as f:
             raw = yaml.safe_load(f) or {}
 
         # Browser settings

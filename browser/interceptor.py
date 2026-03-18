@@ -8,7 +8,7 @@ reliable extraction method.
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Any
 
 from playwright.async_api import Page, Response
 
@@ -42,12 +42,13 @@ class NetworkInterceptor:
         self._is_listening = True
         log.debug("Network interceptor listening for Voyager API responses")
 
-    async def stop_listening(self, page: Page) -> None:
+    async def stop_listening(self, page: Page | None) -> None:
         """Detach response listener."""
-        try:
-            page.remove_listener("response", self._on_response)
-        except Exception:
-            pass
+        if page:
+            try:
+                page.remove_listener("response", self._on_response)
+            except Exception:
+                pass
         self._is_listening = False
 
     async def _on_response(self, response: Response) -> None:
@@ -68,11 +69,13 @@ class NetworkInterceptor:
         try:
             body = await response.text()
             data = json.loads(body)
-            self._captured_responses.append({
-                "url": url,
-                "data": data,
-                "status": response.status,
-            })
+            self._captured_responses.append(
+                {
+                    "url": url,
+                    "data": data,
+                    "status": response.status,
+                }
+            )
             log.debug(
                 "Captured Voyager API response",
                 extra={"ctx": {"url": _truncate_url(url), "keys": _top_keys(data)}},
@@ -82,7 +85,7 @@ class NetworkInterceptor:
         except Exception as e:
             log.debug(f"Error capturing response: {e}")
 
-    def find_job_data(self, job_id: str) -> Optional[dict[str, Any]]:
+    def find_job_data(self, job_id: str) -> dict[str, Any] | None:
         """Search captured responses for data about a specific job ID.
 
         LinkedIn's Voyager API returns job data in various nested structures.
@@ -104,14 +107,12 @@ class NetworkInterceptor:
             included = data.get("included", [])
             for item in included:
                 entity_urn = item.get("entityUrn", "")
-                if "jobPosting" in entity_urn or "fs_miniJob" in str(
-                    item.get("$type", "")
-                ):
+                if "jobPosting" in entity_urn or "fs_miniJob" in str(item.get("$type", "")):
                     results.append(item)
         return results
 
 
-def _find_in_voyager(data: Any, job_id: str) -> Optional[dict]:
+def _find_in_voyager(data: Any, job_id: str) -> dict | None:
     """Recursively search Voyager response for job data matching an ID."""
     if isinstance(data, dict):
         # Check if this dict itself contains the job ID

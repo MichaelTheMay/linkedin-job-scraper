@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from data.models import Job
 from monitor.logger import get_logger

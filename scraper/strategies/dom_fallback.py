@@ -7,9 +7,8 @@ Logs when used as a canary for broken primary extraction.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 
 from data.models import ExtractionStrategy, Job, JobType, WorkplaceType
 from monitor.logger import get_logger
@@ -96,7 +95,7 @@ def _find_company(soup: BeautifulSoup) -> str:
     # Fallback: look for company links near the title
     main = soup.find("main")
     if main:
-        company_links = main.find_all("a", href=re.compile(r"/company/"))
+        company_links = main.find_all("a", href=re.compile(r"/company/"))  # type: ignore[union-attr]
         for link in company_links:
             text = link.get_text(strip=True)
             if text and len(text) > 1:
@@ -111,12 +110,10 @@ def _find_location(soup: BeautifulSoup) -> str:
         return ""
 
     # Location is often in a span near the company name with city/state pattern
-    for span in main.find_all("span"):
+    for span in main.find_all("span"):  # type: ignore[union-attr]
         text = span.get_text(strip=True)
         # Match patterns like "Dallas, TX", "Remote", "New York, NY (On-site)"
-        if re.match(
-            r"^[A-Z][a-zA-Z\s\-]+,?\s*[A-Z]{0,2}\s*(\(.*\))?$", text
-        ):
+        if re.match(r"^[A-Z][a-zA-Z\s\-]+,?\s*[A-Z]{0,2}\s*(\(.*\))?$", text):
             return text[:200]
         if text.lower() in ("remote", "hybrid", "on-site"):
             return text
@@ -165,7 +162,7 @@ def _has_easy_apply(soup: BeautifulSoup) -> bool:
     return bool(soup.find(string=re.compile(r"Easy Apply", re.I)))
 
 
-def _find_applicant_count(soup: BeautifulSoup) -> Optional[int]:
+def _find_applicant_count(soup: BeautifulSoup) -> int | None:
     for el in soup.find_all(string=re.compile(r"\d+\s*applicant")):
         nums = re.findall(r"(\d[\d,]*)", str(el))
         if nums:

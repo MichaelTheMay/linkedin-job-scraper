@@ -6,7 +6,7 @@ This is the most reliable method — structured JSON with stable field names.
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 from data.models import ExtractionStrategy, Job, JobType, WorkplaceType
 from monitor.logger import get_logger
@@ -26,9 +26,14 @@ def extract_from_api(api_data: dict[str, Any], job_id: str, url: str) -> Job:
     try:
         title = _extract_field(api_data, ["title", "jobPostingTitle"])
         company = _extract_company(api_data)
-        location = _extract_field(api_data, [
-            "formattedLocation", "locationName", "location",
-        ])
+        location = _extract_field(
+            api_data,
+            [
+                "formattedLocation",
+                "locationName",
+                "location",
+            ],
+        )
 
         if not title or not company:
             raise ExtractionFallbackError(
@@ -49,22 +54,39 @@ def extract_from_api(api_data: dict[str, Any], job_id: str, url: str) -> Job:
         job.description = _extract_description(api_data)
         job.job_type = _extract_job_type(api_data)
         job.workplace_type = _extract_workplace_type(api_data)
-        job.seniority_level = _extract_field(api_data, [
-            "formattedExperienceLevel", "experienceLevel",
-        ]) or ""
+        job.seniority_level = (
+            _extract_field(
+                api_data,
+                [
+                    "formattedExperienceLevel",
+                    "experienceLevel",
+                ],
+            )
+            or ""
+        )
         job.applicant_count = _extract_applicant_count(api_data)
-        job.posted_date = _extract_field(api_data, [
-            "listedAt", "originalListedAt", "postedDate",
-        ]) or ""
-        job.is_easy_apply = _extract_bool(api_data, [
-            "applyMethod", "easyApplyUrl",
-        ])
+        job.posted_date = (
+            _extract_field(
+                api_data,
+                [
+                    "listedAt",
+                    "originalListedAt",
+                    "postedDate",
+                ],
+            )
+            or ""
+        )
+        job.is_easy_apply = _extract_bool(
+            api_data,
+            [
+                "applyMethod",
+                "easyApplyUrl",
+            ],
+        )
         job.is_promoted = _extract_bool(api_data, ["isPromoted", "promoted"])
         job.salary_min, job.salary_max = _extract_salary(api_data)
 
-        industries_raw = api_data.get("formattedIndustries") or api_data.get(
-            "industries", []
-        )
+        industries_raw = api_data.get("formattedIndustries") or api_data.get("industries", [])
         if isinstance(industries_raw, list):
             job.industries = [str(i) for i in industries_raw]
 
@@ -77,9 +99,7 @@ def extract_from_api(api_data: dict[str, Any], job_id: str, url: str) -> Job:
     except ExtractionFallbackError:
         raise
     except Exception as e:
-        raise ExtractionFallbackError(
-            f"API parse error: {e}", url=url
-        ) from e
+        raise ExtractionFallbackError(f"API parse error: {e}", url=url) from e
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +107,7 @@ def extract_from_api(api_data: dict[str, Any], job_id: str, url: str) -> Job:
 # ---------------------------------------------------------------------------
 
 
-def _extract_field(data: dict, keys: list[str]) -> Optional[str]:
+def _extract_field(data: dict, keys: list[str]) -> str | None:
     """Try multiple possible keys, return first non-empty string value."""
     for key in keys:
         val = _deep_get(data, key)
@@ -114,9 +134,7 @@ def _extract_company(data: dict) -> str:
     # Nested in company resolve
     company_data = data.get("companyDetails", {})
     if isinstance(company_data, dict):
-        resolved = company_data.get("company") or company_data.get(
-            "companyResolutionResult"
-        )
+        resolved = company_data.get("company") or company_data.get("companyResolutionResult")
         if isinstance(resolved, dict):
             name = resolved.get("name")
             if name:
@@ -171,7 +189,7 @@ def _extract_workplace_type(data: dict) -> WorkplaceType:
     return WorkplaceType.UNKNOWN
 
 
-def _extract_applicant_count(data: dict) -> Optional[int]:
+def _extract_applicant_count(data: dict) -> int | None:
     for key in ["applicantCount", "formattedApplicantCount"]:
         val = data.get(key)
         if isinstance(val, int):
@@ -183,7 +201,7 @@ def _extract_applicant_count(data: dict) -> Optional[int]:
     return None
 
 
-def _extract_salary(data: dict) -> tuple[Optional[float], Optional[float]]:
+def _extract_salary(data: dict) -> tuple[float | None, float | None]:
     """Extract salary range from API data."""
     salary_data = data.get("salaryInsights") or data.get("salary") or {}
     if isinstance(salary_data, dict):

@@ -10,9 +10,7 @@ LINKEDIN_JOB_VIEW = f"{LINKEDIN_BASE}/jobs/view"
 LINKEDIN_JOB_SEARCH = f"{LINKEDIN_BASE}/jobs/search/"
 
 # Guest API (no auth required — most durable scraping surface)
-GUEST_JOB_SEARCH_API = (
-    f"{LINKEDIN_BASE}/jobs-guest/jobs/api/seeMoreJobPostings/search"
-)
+GUEST_JOB_SEARCH_API = f"{LINKEDIN_BASE}/jobs-guest/jobs/api/seeMoreJobPostings/search"
 
 # Voyager internal API prefix
 VOYAGER_API_PREFIX = "/voyager/api/"

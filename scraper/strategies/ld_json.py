@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Optional
 
 from bs4 import BeautifulSoup
 
-from data.models import ExtractionStrategy, Job, JobType, WorkplaceType
+from data.models import ExtractionStrategy, Job, JobType
 from monitor.logger import get_logger
 from scraper.exceptions import ExtractionFallbackError
 
@@ -127,7 +126,7 @@ def _parse_employment_type(val) -> JobType:
     return JobType.UNKNOWN
 
 
-def _parse_salary(data: dict) -> tuple[Optional[float], Optional[float]]:
+def _parse_salary(data: dict) -> tuple[float | None, float | None]:
     salary = data.get("baseSalary", {})
     if isinstance(salary, dict):
         value = salary.get("value", {})
@@ -139,7 +138,7 @@ def _parse_salary(data: dict) -> tuple[Optional[float], Optional[float]]:
     return None, None
 
 
-def _to_float(val) -> Optional[float]:
+def _to_float(val) -> float | None:
     if val is None:
         return None
     try:

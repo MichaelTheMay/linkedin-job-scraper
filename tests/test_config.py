@@ -1,17 +1,14 @@
 """Tests for configuration loading."""
 
-import os
-import tempfile
-
-import pytest
 import yaml
-from config.settings import ScraperConfig, SearchProfile, load_config
+
+from config.settings import SearchProfile, load_config
 
 
 class TestLoadConfig:
     def test_loads_from_env(self, monkeypatch, tmp_path):
         env_file = tmp_path / ".env"
-        env_file.write_text('LI_AT_COOKIE=test_cookie_value\nJSESSIONID_COOKIE=ajax:123\n')
+        env_file.write_text("LI_AT_COOKIE=test_cookie_value\nJSESSIONID_COOKIE=ajax:123\n")
         # Create an empty yaml so it doesn't try to load default
         yaml_file = tmp_path / "config.yaml"
         yaml_file.write_text("search_profiles: []")
