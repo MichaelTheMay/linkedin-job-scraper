@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Jobs ({{ total }}) — LinkedIn Job Scraper{% endblock %}
+{% block content %}
+<div class="space-y-4">
+    <!-- Filters bar -->
+    <div class="bg-white rounded-lg shadow p-4 flex flex-wrap items-center gap-3">
+        <div class="flex gap-1">
+            {% set statuses = ['all', 'discovered', 'interested', 'applied', 'interviewing', 'offer', 'rejected'] %}
+            {% for s in statuses %}
+            <a href="/jobs?status={{ s }}&search={{ search }}&sort={{ sort }}&dir={{ dir }}"
+               class="px-3 py-1 rounded-full text-xs font-medium
+                      {% if status_filter == s %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                {{ s | capitalize }}
+                {% if s != 'all' and status_counts.get(s) %}({{ status_counts[s] }}){% endif %}
+            </a>
+            {% endfor %}
+        </div>
+        <form class="flex-1 flex gap-2" action="/jobs" method="get">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <input type="text" name="search" value="{{ search }}" placeholder="Search title, company, location..."
+                   class="flex-1 border rounded-md px-3 py-1.5 text-sm">
+            <button type="submit" class="px-3 py-1.5 bg-gray-100 rounded-md text-sm hover:bg-gray-200">Search</button>
+        </form>
+        <a href="/api/jobs/export?status={{ status_filter }}&search={{ search }}"
+           class="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700">
+            Export CSV
+        </a>
+    </div>
+
+    <!-- Jobs table -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
+                <tr>
+                    <th class="px-4 py-3 text-left">
+                        <a href="/jobs?status={{ status_filter }}&search={{ search }}&sort=title&dir={% if sort == 'title' and dir == 'ASC' %}DESC{% else %}ASC{% endif %}"
+                           class="hover:text-gray-900">Title</a>
+                    </th>
+                    <th class="px-4 py-3 text-left">Company</th>
+                    <th class="px-4 py-3 text-left">Location</th>
+                    <th class="px-4 py-3 text-left">Type</th>
+                    <th class="px-4 py-3 text-left">
+                        <a href="/jobs?status={{ status_filter }}&search={{ search }}&sort=applicant_count&dir={% if sort == 'applicant_count' and dir == 'ASC' %}DESC{% else %}ASC{% endif %}"
+                           class="hover:text-gray-900">Applicants</a>
+                    </th>
+                    <th class="px-4 py-3 text-left">
+                        <a href="/jobs?status={{ status_filter }}&search={{ search }}&sort=posted_date&dir={% if sort == 'posted_date' and dir == 'DESC' %}ASC{% else %}DESC{% endif %}"
+                           class="hover:text-gray-900">Posted</a>
+                    </th>
+                    <th class="px-4 py-3 text-left">Status</th>
+                    <th class="px-4 py-3 text-left w-8"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100" id="job-table-body">
+                {% for job in jobs %}
+                {% include "partials/job_row.html" %}
+                {% endfor %}
+                {% if not jobs %}
+                <tr>
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
+                        No jobs found. <a href="/" class="text-blue-600 underline">Run a scrape</a> to get started.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="flex justify-center gap-2">
+        {% for p in range(1, total_pages + 1) %}
+        <a href="/jobs?status={{ status_filter }}&search={{ search }}&sort={{ sort }}&dir={{ dir }}&page={{ p }}"
+           class="px-3 py-1 rounded text-sm {% if p == page %}bg-blue-600 text-white{% else %}bg-white text-gray-600 hover:bg-gray-100{% endif %}">
+            {{ p }}
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Detail panel (inserted by htmx) -->
+<div id="job-detail-panel"></div>
+{% endblock %}

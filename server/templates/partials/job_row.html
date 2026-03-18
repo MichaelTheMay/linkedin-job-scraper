@@ -1,0 +1,41 @@
+<tr id="job-row-{{ job.id }}" data-status="{{ job.status }}" class="hover:bg-gray-50">
+    <td class="px-4 py-3">
+        <div class="font-medium text-gray-900">
+            <a href="{{ job.url }}" target="_blank" class="hover:text-blue-600">{{ job.title }}</a>
+        </div>
+        {% if job.badge %}
+        <span class="text-xs text-green-600">{{ job.badge }}</span>
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 text-gray-600">{{ job.company }}</td>
+    <td class="px-4 py-3 text-gray-500 text-xs">{{ job.location }}</td>
+    <td class="px-4 py-3 text-gray-500 text-xs">
+        {% if job.job_type and job.job_type != 'Unknown' %}{{ job.job_type }}{% endif %}
+        {% if job.seniority_level %}<br>{{ job.seniority_level }}{% endif %}
+    </td>
+    <td class="px-4 py-3 text-gray-600">
+        {% if job.applicant_count %}{{ job.applicant_count }}{% else %}&mdash;{% endif %}
+    </td>
+    <td class="px-4 py-3 text-gray-500 text-xs">{{ job.posted_date or '&mdash;' }}</td>
+    <td class="px-4 py-3">
+        <select hx-patch="/api/jobs/{{ job.id }}/status"
+                hx-target="#job-row-{{ job.id }}"
+                hx-swap="outerHTML"
+                hx-include="this"
+                name="status"
+                class="text-xs border rounded px-2 py-1 bg-white">
+            {% set statuses = ['discovered', 'interested', 'applied', 'interviewing', 'offer', 'rejected', 'archived'] %}
+            {% for s in statuses %}
+            <option value="{{ s }}" {% if job.status == s %}selected{% endif %}>{{ s | capitalize }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td class="px-4 py-3">
+        <button hx-get="/api/jobs/{{ job.id }}/detail"
+                hx-target="#job-detail-panel"
+                hx-swap="innerHTML"
+                class="text-gray-400 hover:text-gray-600 text-xs">
+            View
+        </button>
+    </td>
+</tr>

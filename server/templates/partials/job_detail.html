@@ -1,0 +1,145 @@
+<div class="fixed inset-0 bg-black/30 z-40" onclick="this.parentElement.innerHTML=''"></div>
+<div class="fixed right-0 top-0 h-full w-full max-w-2xl bg-white shadow-xl z-50 overflow-y-auto">
+    <div class="p-6">
+        <!-- Header -->
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h2 class="text-xl font-bold">{{ job.title }}</h2>
+                <p class="text-gray-600">{{ job.company }} &mdash; {{ job.location }}</p>
+                {% if job.badge %}
+                <span class="inline-block mt-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">{{ job.badge }}</span>
+                {% endif %}
+            </div>
+            <button onclick="document.getElementById('job-detail-panel').innerHTML=''"
+                    class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+
+        <!-- Key info grid -->
+        <div class="grid grid-cols-2 gap-3 mb-6 text-sm">
+            <div class="bg-gray-50 rounded p-3">
+                <div class="text-gray-500 text-xs">Job Type</div>
+                <div class="font-medium">{{ job.job_type if job.job_type != 'Unknown' else '&mdash;' }}</div>
+            </div>
+            <div class="bg-gray-50 rounded p-3">
+                <div class="text-gray-500 text-xs">Seniority</div>
+                <div class="font-medium">{{ job.seniority_level or '&mdash;' }}</div>
+            </div>
+            <div class="bg-gray-50 rounded p-3">
+                <div class="text-gray-500 text-xs">Applicants</div>
+                <div class="font-medium">{{ job.applicant_count or '&mdash;' }}</div>
+            </div>
+            <div class="bg-gray-50 rounded p-3">
+                <div class="text-gray-500 text-xs">Posted</div>
+                <div class="font-medium">{{ job.posted_date or '&mdash;' }}</div>
+            </div>
+            {% if job.salary_raw %}
+            <div class="bg-gray-50 rounded p-3 col-span-2">
+                <div class="text-gray-500 text-xs">Salary</div>
+                <div class="font-medium">{{ job.salary_raw }}</div>
+            </div>
+            {% endif %}
+            {% if job.industries %}
+            <div class="bg-gray-50 rounded p-3 col-span-2">
+                <div class="text-gray-500 text-xs">Industries</div>
+                <div class="font-medium">{{ job.industries }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Auth-gated fields -->
+        {% if job.hiring_manager %}
+        <div class="bg-blue-50 rounded p-3 mb-4 text-sm">
+            <div class="text-blue-600 text-xs font-medium">Hiring Manager</div>
+            <div>{{ job.hiring_manager }}</div>
+        </div>
+        {% endif %}
+        {% if not job.hiring_manager %}
+        <div class="bg-gray-50 rounded p-3 mb-4 text-sm text-gray-400">
+            Hiring manager info &mdash; requires auth cookies
+        </div>
+        {% endif %}
+
+        <!-- Status + Notes -->
+        <div class="mb-6">
+            <div class="flex gap-3 items-center mb-2">
+                <label class="text-sm font-medium text-gray-700">Status:</label>
+                <select hx-patch="/api/jobs/{{ job.id }}/status"
+                        hx-target="#job-row-{{ job.id }}"
+                        hx-swap="outerHTML"
+                        name="status"
+                        class="text-sm border rounded px-3 py-1.5">
+                    {% set statuses = ['discovered', 'interested', 'applied', 'interviewing', 'offer', 'rejected', 'archived'] %}
+                    {% for s in statuses %}
+                    <option value="{{ s }}" {% if job.status == s %}selected{% endif %}>{{ s | capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if job.notes %}
+            <div class="text-sm text-gray-600 bg-yellow-50 rounded p-2">{{ job.notes }}</div>
+            {% endif %}
+        </div>
+
+        <!-- Description -->
+        {% if job.description %}
+        <div class="mb-6">
+            <h3 class="text-sm font-semibold text-gray-700 mb-2">Job Description</h3>
+            <div class="text-sm text-gray-600 whitespace-pre-line max-h-96 overflow-y-auto bg-gray-50 rounded p-4">{{ job.description }}</div>
+        </div>
+        {% else %}
+        <div class="mb-6 text-sm text-gray-400 bg-gray-50 rounded p-4">
+            No description available. Try running a scrape with enrichment enabled.
+        </div>
+        {% endif %}
+
+        <!-- Action buttons -->
+        <div class="flex gap-2 mb-6">
+            <a href="{{ job.url }}" target="_blank"
+               class="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                Open on LinkedIn
+            </a>
+            {% if job.apply_url %}
+            <a href="{{ job.apply_url }}" target="_blank"
+               class="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+                Apply
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- AI Generator Stubs -->
+        <div class="border-t pt-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">AI Tools</h3>
+            <div class="flex flex-wrap gap-2">
+                <button hx-post="/api/ai/cover-letter"
+                        hx-vals='{"job_id": "{{ job.job_id }}"}'
+                        hx-target="#ai-output"
+                        hx-swap="innerHTML"
+                        class="px-3 py-1.5 bg-purple-100 text-purple-700 rounded text-sm hover:bg-purple-200">
+                    Generate Cover Letter
+                </button>
+                <button hx-post="/api/ai/hiring-email"
+                        hx-vals='{"job_id": "{{ job.job_id }}"}'
+                        hx-target="#ai-output"
+                        hx-swap="innerHTML"
+                        class="px-3 py-1.5 bg-purple-100 text-purple-700 rounded text-sm hover:bg-purple-200">
+                    Draft Hiring Manager Email
+                </button>
+                <button hx-post="/api/ai/linkedin-dm"
+                        hx-vals='{"job_id": "{{ job.job_id }}"}'
+                        hx-target="#ai-output"
+                        hx-swap="innerHTML"
+                        class="px-3 py-1.5 bg-purple-100 text-purple-700 rounded text-sm hover:bg-purple-200">
+                    Draft LinkedIn DM
+                </button>
+            </div>
+            <div id="ai-output" class="mt-3"></div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="border-t pt-4 mt-6 text-xs text-gray-400 space-y-1">
+            <div>Job ID: {{ job.job_id }}</div>
+            <div>First seen: {{ job.first_seen_at }}</div>
+            <div>Last seen: {{ job.last_seen_at }}</div>
+            {% if job.applied_date %}<div>Applied: {{ job.applied_date }}</div>{% endif %}
+        </div>
+    </div>
+</div>

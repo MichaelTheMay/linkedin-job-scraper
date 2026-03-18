@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Search — LinkedIn Job Scraper{% endblock %}
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Search Form -->
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold mb-4">Configure Search</h2>
+            <form id="search-form">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Keywords *</label>
+                        <input type="text" name="keywords" placeholder="e.g. AI engineer"
+                               class="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                        <input type="text" name="location" placeholder="e.g. Dallas, TX"
+                               class="w-full border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Geo ID</label>
+                        <input type="text" name="geo_id" placeholder="LinkedIn geo ID (optional)"
+                               class="w-full border rounded-md px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Distance (miles)</label>
+                        <select name="distance" class="w-full border rounded-md px-3 py-2 text-sm">
+                            <option value="10">10 miles</option>
+                            <option value="25" selected>25 miles</option>
+                            <option value="50">50 miles</option>
+                            <option value="100">100 miles</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Time Posted</label>
+                        <select name="time_filter" class="w-full border rounded-md px-3 py-2 text-sm">
+                            <option value="r86400">Past 24 hours</option>
+                            <option value="r604800">Past week</option>
+                            <option value="r2592000" selected>Past month</option>
+                            <option value="">Any time</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Max Pages</label>
+                        <input type="number" name="max_pages" value="10" min="1" max="40"
+                               class="w-full border rounded-md px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Experience Level</label>
+                        <select name="experience_levels" class="w-full border rounded-md px-3 py-2 text-sm">
+                            <option value="">Any</option>
+                            <option value="1">Internship</option>
+                            <option value="2">Entry level</option>
+                            <option value="3">Associate</option>
+                            <option value="4">Mid-Senior level</option>
+                            <option value="5">Director</option>
+                            <option value="6">Executive</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Job Type</label>
+                        <select name="job_types" class="w-full border rounded-md px-3 py-2 text-sm">
+                            <option value="">Any</option>
+                            <option value="F">Full-time</option>
+                            <option value="P">Part-time</option>
+                            <option value="C">Contract</option>
+                            <option value="I">Internship</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex items-center gap-3">
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="save_profile" checked class="rounded">
+                        Save this search profile
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="enrich" checked class="rounded">
+                        Enrich with detail pages
+                    </label>
+                </div>
+
+                <div class="mt-6 flex items-center gap-3">
+                    <button type="button"
+                            hx-post="/api/search/preview"
+                            hx-include="#search-form"
+                            hx-target="#preview-result"
+                            hx-indicator="#preview-spinner"
+                            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm font-medium">
+                        Preview Count
+                        <span id="preview-spinner" class="htmx-indicator ml-2">...</span>
+                    </button>
+                    <button type="button"
+                            hx-post="/api/search/scrape"
+                            hx-include="#search-form"
+                            hx-target="#scrape-result"
+                            hx-indicator="#scrape-spinner"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium">
+                        Scrape Jobs
+                        <span id="scrape-spinner" class="htmx-indicator ml-2">...</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Results area -->
+            <div id="preview-result" class="mt-4"></div>
+            <div id="scrape-result" class="mt-4"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar: Stats + Saved Profiles -->
+    <div class="space-y-6">
+        <!-- Stats -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-3">Database</h3>
+            <div class="text-3xl font-bold text-blue-600">{{ total_jobs }}</div>
+            <div class="text-sm text-gray-500 mb-4">total jobs tracked</div>
+            {% if status_counts %}
+            <div class="space-y-1 text-sm">
+                {% for status, count in status_counts.items() %}
+                <div class="flex justify-between">
+                    <span class="capitalize">{{ status }}</span>
+                    <span class="font-mono text-gray-600">{{ count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Saved Profiles -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-3">Saved Searches</h3>
+            {% if profiles %}
+            <div class="space-y-2">
+                {% for p in profiles %}
+                <div class="flex items-center justify-between text-sm border rounded px-3 py-2">
+                    <div>
+                        <div class="font-medium">{{ p.keywords }}</div>
+                        <div class="text-gray-500 text-xs">{{ p.location or 'Any location' }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-500">No saved searches yet. Run a scrape to save one.</p>
+            {% endif %}
+        </div>
+
+        <!-- Recent Runs -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-3">Recent Scrapes</h3>
+            {% if recent_runs %}
+            <div class="space-y-2 text-sm">
+                {% for run in recent_runs %}
+                <div class="border rounded px-3 py-2">
+                    <div class="font-medium">{{ run.keywords }}</div>
+                    <div class="text-gray-500 text-xs">
+                        {{ run.new_jobs }} new, {{ run.updated_jobs }} updated
+                        &mdash; {{ run.elapsed_seconds | round(1) }}s
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-500">No scrapes yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

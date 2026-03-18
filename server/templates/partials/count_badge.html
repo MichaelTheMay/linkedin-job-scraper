@@ -1,0 +1,14 @@
+<div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+    <div class="flex items-center gap-3">
+        <div class="text-3xl font-bold text-blue-600">~{{ count }}</div>
+        <div class="text-sm text-gray-600">
+            results found for <strong>{{ profile.keywords }}</strong>
+            {% if profile.location %} in <strong>{{ profile.location }}</strong>{% endif %}
+        </div>
+    </div>
+    {% if count == 0 %}
+    <p class="text-sm text-gray-500 mt-2">Try different keywords or a broader location.</p>
+    {% elif count > 500 %}
+    <p class="text-sm text-gray-500 mt-2">Large result set. Consider narrowing with filters or reducing max pages.</p>
+    {% endif %}
+</div>

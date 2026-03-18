@@ -20,6 +20,11 @@ env/
 browser_data/
 playwright_state.json
 
+# Database
+*.db
+*.db-wal
+*.db-shm
+
 # Output files
 output/
 *.csv
@@ -28,6 +33,7 @@ output/
 # Debug artifacts
 *.html
 !tests/fixtures/*.html
+!server/templates/**/*.html
 *.png
 *.txt
 !requirements.txt

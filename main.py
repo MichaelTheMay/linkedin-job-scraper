@@ -443,6 +443,17 @@ def main():
         help="Parallel URL collection via guest API (no auth needed, much faster)",
     )
     parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="Launch the web UI (FastAPI + htmx) on localhost:8000",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for the web UI (default: 8000)",
+    )
+    parser.add_argument(
         "--max-pages",
         type=int,
         default=None,
@@ -486,7 +497,14 @@ def main():
     signal.signal(signal.SIGINT, _signal_handler)
 
     # Run
-    if args.login:
+    if args.serve:
+        import uvicorn
+
+        from db.database import init_db
+
+        init_db()
+        uvicorn.run("server.app:app", host="127.0.0.1", port=args.port, reload=False)
+    elif args.login:
         asyncio.run(interactive_login(config))
     elif args.validate:
         asyncio.run(validate_session(config))

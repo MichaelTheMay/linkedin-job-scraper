@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Pipeline — LinkedIn Job Scraper{% endblock %}
+{% block content %}
+<div class="space-y-4">
+    <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold">Application Pipeline</h2>
+        <a href="/api/jobs/export?status=applied"
+           class="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700">
+            Export Applied Jobs
+        </a>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {% for status in statuses %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-3 py-2 border-b bg-gray-50 rounded-t-lg">
+                <h3 class="text-sm font-semibold capitalize text-gray-700">{{ status }}</h3>
+                <span class="text-xs text-gray-400">{{ columns[status] | length }} jobs</span>
+            </div>
+            <div class="p-2 space-y-2 max-h-[600px] overflow-y-auto">
+                {% for job in columns[status] %}
+                <div data-status="{{ status }}"
+                     class="rounded p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer text-xs"
+                     hx-get="/api/jobs/{{ job.id }}/detail"
+                     hx-target="#job-detail-panel"
+                     hx-swap="innerHTML">
+                    <div class="font-medium text-gray-900 truncate">{{ job.title }}</div>
+                    <div class="text-gray-500 truncate">{{ job.company }}</div>
+                    {% if job.applicant_count %}
+                    <div class="text-gray-400 mt-1">{{ job.applicant_count }} applicants</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% if not columns[status] %}
+                <div class="text-center text-gray-300 text-xs py-4">No jobs</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="job-detail-panel"></div>
+{% endblock %}
