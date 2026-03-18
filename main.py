@@ -443,6 +443,11 @@ def main():
         help="Parallel URL collection via guest API (no auth needed, much faster)",
     )
     parser.add_argument(
+        "--tui",
+        action="store_true",
+        help="Launch the terminal UI (interactive dashboard)",
+    )
+    parser.add_argument(
         "--serve",
         action="store_true",
         help="Launch the web UI (FastAPI + htmx) on localhost:8000",
@@ -497,7 +502,11 @@ def main():
     signal.signal(signal.SIGINT, _signal_handler)
 
     # Run
-    if args.serve:
+    if args.tui:
+        from tui.app import run_tui
+
+        run_tui()
+    elif args.serve:
         import uvicorn
 
         from db.database import init_db

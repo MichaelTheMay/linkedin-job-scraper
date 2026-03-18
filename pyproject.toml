@@ -17,6 +17,7 @@ dependencies = [
     "python-dotenv>=1.0,<2",
     "pyyaml>=6.0,<7",
     "lxml>=5.0,<6",
+    "textual>=1.0,<2",
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.30,<1",
     "jinja2>=3.1,<4",
@@ -43,6 +44,7 @@ packages = [
     "monitor",
     "scraper",
     "server",
+    "tui",
 ]
 
 [tool.pytest.ini_options]
