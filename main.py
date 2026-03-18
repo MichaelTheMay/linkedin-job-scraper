@@ -2,6 +2,7 @@
 
 Usage:
     python main.py                          # scrape with default config
+    python main.py --parallel               # parallel URL collection (fast)
     python main.py --config custom.yaml     # use custom search profiles
     python main.py --validate               # check session health only
     python main.py --login                  # interactive cookie setup
@@ -44,6 +45,7 @@ from scraper.exceptions import (
 )
 from scraper.job_detail import extract_job
 from scraper.job_search import collect_job_urls
+from scraper.parallel import parallel_collect
 
 log = get_logger()
 
@@ -56,13 +58,17 @@ def _signal_handler(sig, frame):
     log.warning("Shutdown requested (Ctrl+C) — saving progress and exiting...")
 
 
-async def run_scrape(config: ScraperConfig) -> None:
+async def run_scrape(config: ScraperConfig, *, parallel: bool = False) -> None:
     """Main scrape orchestration loop."""
     if not config.search_profiles:
         log.error(
             "No search profiles configured. "
             "Add profiles to config/search_profiles.yaml or set SEARCH_KEYWORDS env var."
         )
+        return
+
+    if parallel:
+        await _run_parallel(config)
         return
 
     browser = BrowserManager(config)
@@ -131,6 +137,78 @@ async def run_scrape(config: ScraperConfig) -> None:
         "Scraper finished",
         extra={"ctx": health.summary()},
     )
+
+
+async def _run_parallel(config: ScraperConfig) -> None:
+    """Parallel mode: probe result count → dispatch N workers → export.
+
+    No auth needed. Each worker is an independent browser context hitting
+    the guest API. Card metadata (title, company, location, date, salary)
+    is extracted during URL collection — no detail page visits required
+    for basic data.
+    """
+    from data.models import ExtractionStrategy
+
+    for profile in config.search_profiles:
+        if _shutdown_event.is_set():
+            break
+
+        log.info(
+            f"=== Parallel scrape: {profile.name} ===",
+            extra={"ctx": {"keywords": profile.keywords}},
+        )
+
+        result_data = await parallel_collect(profile)
+
+        if not result_data.cards:
+            log.warning("No jobs found")
+            continue
+
+        # Convert JobCards to Job objects
+        jobs: list[Job] = []
+        dedup = Deduplicator()
+        for card in result_data.cards:
+            job = Job(
+                job_id=card.job_id,
+                title=card.title,
+                company=card.company,
+                location=card.location,
+                url=card.url,
+                posted_date=card.posted_date or None,
+                extraction_strategy=ExtractionStrategy.DOM_FALLBACK,
+            )
+            # Parse salary if present
+            if card.salary:
+                job.description = f"Salary: {card.salary}"
+
+            job = clean_job(job)
+            if not dedup.is_duplicate(job):
+                dedup.mark_seen(job)
+                jobs.append(job)
+
+        # Export
+        exporter = Exporter(config.output_dir, config.output_format)
+        result = ScrapeResult(search_profile=profile.name)
+        result.total_urls_found = len(result_data.cards)
+        result.total_jobs_extracted = len(jobs)
+        result.total_duplicates_skipped = dedup.duplicates_skipped
+        result.elapsed_seconds = result_data.elapsed_seconds
+
+        if jobs:
+            result.output_file = exporter.save_jobs(jobs, profile.name)
+            exporter.save_summary(result)
+
+        log.info("=" * 60)
+        log.info(f"  Profile:     {profile.name}")
+        log.info(f"  Total found: {result_data.total_results_probed}")
+        log.info(f"  Collected:   {len(result_data.cards)}")
+        log.info(f"  Exported:    {len(jobs)} (after dedup)")
+        log.info(f"  Workers:     {result_data.workers_used}")
+        log.info(f"  Pages:       {result_data.pages_scraped}")
+        log.info(f"  Time:        {result_data.elapsed_seconds:.1f}s")
+        if result.output_file:
+            log.info(f"  Output:      {result.output_file}")
+        log.info("=" * 60)
 
 
 async def _run_profile(
@@ -342,6 +420,11 @@ def main():
         help="Validate session health only (no scraping)",
     )
     parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Parallel URL collection via guest API (no auth needed, much faster)",
+    )
+    parser.add_argument(
         "--max-pages",
         type=int,
         default=None,
@@ -390,7 +473,7 @@ def main():
     elif args.validate:
         asyncio.run(validate_session(config))
     else:
-        asyncio.run(run_scrape(config))
+        asyncio.run(run_scrape(config, parallel=args.parallel))
 
 
 if __name__ == "__main__":
