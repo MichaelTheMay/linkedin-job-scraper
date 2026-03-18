@@ -1,0 +1,25 @@
+# LinkedIn Job Scraper — Search Configuration
+# Each search profile defines a separate job search to run.
+
+browser:
+  headless: true
+  user_data_dir: ./browser_data
+  block_resources: true  # block images/fonts/tracking for speed
+
+output:
+  dir: ./output
+  format: both  # csv, json, or both
+
+logging:
+  level: INFO
+  dir: ./logs
+
+search_profiles:
+  - name: ai-engineer-dallas
+    keywords: "ai engineer"
+    geo_id: "104194190"       # Dallas, TX area
+    distance: 30.0
+    time_filter: r2592000     # past month
+    max_pages: 10
+    # experience_levels: []   # e.g., ["2", "3"] for associate/mid-senior
+    # job_types: []            # e.g., ["F"] for full-time
