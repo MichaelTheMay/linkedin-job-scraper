@@ -1,0 +1,46 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Browser data (contains session cookies/cache)
+browser_data/
+playwright_state.json
+
+# Output files
+output/
+*.csv
+*.xlsx
+
+# Debug artifacts
+*.html
+*.png
+*.txt
+!requirements.txt
+!README.md
+!TODOS.md
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+logs/
+*.log
